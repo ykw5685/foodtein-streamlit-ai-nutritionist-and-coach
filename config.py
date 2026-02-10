@@ -2,14 +2,19 @@
 Configuration for Streamlit AI Nutritionist Testing UI
 """
 
+import os
 from datetime import datetime, timedelta
 import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # ============================================================================
 # API Configuration
 # ============================================================================
 
-API_BASE_URL = "http://localhost:8080/api"
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080/api")
 AI_NUTRITIONIST_BASE = f"{API_BASE_URL}/ai-nutritionist"
 AI_COACH_BASE = f"{API_BASE_URL}/ai-coach"
 
@@ -32,7 +37,7 @@ ENDPOINTS = {
 # Using ExternalAuthMiddleware with no endpoint configured,
 # "bearer streamlit" token maps to user_streamlit_001 in the mock auth
 # Any other token maps to user_123456 (default)
-TEST_TOKEN = "bearer streamlit"
+TEST_TOKEN = os.getenv("TEST_TOKEN", "bearer streamlit")
 
 
 # ============================================================================
