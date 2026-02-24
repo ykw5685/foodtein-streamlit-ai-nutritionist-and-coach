@@ -47,6 +47,13 @@ if "api_client" not in st.session_state:
     st.session_state.profile_gender = ""
     st.session_state.profile_height = 0.0
     st.session_state.profile_weight = 0.0
+    # Dietary preferences
+    st.session_state.dietary_type = []  # Store as list
+    st.session_state.food_allergies_text = ""
+    st.session_state.disliked_foods_text = ""
+    # Health conditions
+    st.session_state.diseases_text = ""
+    st.session_state.illnesses_text = ""
 
 # ============================================================================
 # Helper Functions
@@ -198,6 +205,112 @@ def display_dietary_data_preview():
         st.info("No dietary data uploaded yet")
 
 
+def parse_food_allergies(text: str) -> list:
+    """
+    Parse food allergies from text input
+    Format: "peanuts:severe:swelling | shellfish:mild | tree nuts"
+    Or simple list: "peanuts, shellfish, tree nuts"
+    """
+    if not text or not text.strip():
+        return []
+    
+    allergies = []
+    # Split by pipe or newline
+    items = [item.strip() for item in text.replace('\n', '|').split('|') if item.strip()]
+    
+    for item in items:
+        parts = [p.strip() for p in item.split(':')]
+        allergy_dict = {"food_item": parts[0]}
+        
+        if len(parts) > 1:
+            allergy_dict["severity"] = parts[1]
+        if len(parts) > 2:
+            allergy_dict["symptoms"] = parts[2]
+        
+        allergies.append(allergy_dict)
+    
+    return allergies
+
+
+def parse_disliked_foods(text: str) -> list:
+    """
+    Parse disliked foods from text input
+    Format: "broccoli:doesn't like texture | mushrooms:slimy texture"
+    Or simple list: "broccoli, mushrooms, onions"
+    """
+    if not text or not text.strip():
+        return []
+    
+    foods = []
+    # Split by pipe or newline
+    items = [item.strip() for item in text.replace('\n', '|').split('|') if item.strip()]
+    
+    for item in items:
+        parts = [p.strip() for p in item.split(':')]
+        food_dict = {"food_item": parts[0]}
+        
+        if len(parts) > 1:
+            food_dict["reason"] = parts[1]
+        
+        foods.append(food_dict)
+    
+    return foods
+
+
+def parse_diseases(text: str) -> list:
+    """
+    Parse diseases from text input
+    Format: "diabetes:chronic:active:insulin | hypertension:chronic:managed"
+    Or simpler: "diabetes:chronic | hypertension"
+    """
+    if not text or not text.strip():
+        return []
+    
+    diseases = []
+    items = [item.strip() for item in text.replace('\n', '|').split('|') if item.strip()]
+    
+    for item in items:
+        parts = [p.strip() for p in item.split(':')]
+        disease_dict = {"name": parts[0]}
+        
+        if len(parts) > 1:
+            disease_dict["type"] = parts[1]  # chronic, acute, genetic, infectious
+        if len(parts) > 2:
+            disease_dict["status"] = parts[2]  # active, managed, cured, in_treatment
+        if len(parts) > 3:
+            disease_dict["medication"] = parts[3]
+        
+        diseases.append(disease_dict)
+    
+    return diseases
+
+
+def parse_illnesses(text: str) -> list:
+    """
+    Parse illnesses from text input
+    Format: "flu:moderate:recovering | cold:mild:active"
+    Or simple: "flu | cold:mild"
+    """
+    if not text or not text.strip():
+        return []
+    
+    illnesses = []
+    items = [item.strip() for item in text.replace('\n', '|').split('|') if item.strip()]
+    
+    for item in items:
+        parts = [p.strip() for p in item.split(':')]
+        illness_dict = {"name": parts[0]}
+        
+        if len(parts) > 1:
+            illness_dict["severity"] = parts[1]  # mild, moderate, severe
+        if len(parts) > 2:
+            illness_dict["status"] = parts[2]  # active, recovered, chronic
+        
+        illnesses.append(illness_dict)
+    
+    return illnesses
+
+
 def filter_last_7_days(df: pd.DataFrame) -> pd.DataFrame:
     """
     Filter a pandas DataFrame to only include rows from the latest 7 calendar days.
@@ -280,7 +393,68 @@ with st.sidebar:
     
     st.divider()
     
-    # Data Upload
+    # Dietary Preferences
+    st.subheader("🥗 Dietary Preferences")
+    
+    # Dietary Type (multiple selection)
+    dietary_type_options = ["Halal", "Vegetarian", "Vegan", "Pescatarian", "Kosher"]
+    st.session_state.dietary_type = st.multiselect(
+        "Dietary Type (select one or more)",
+        dietary_type_options,
+        default=st.session_state.dietary_type,
+        key="dietary_type_multiselect"
+    )
+    
+    # Food Allergies
+    st.markdown("**Food Allergies**")
+    st.caption("Format: food:severity:symptoms (e.g., peanuts:severe:swelling) or simple list")
+    st.session_state.food_allergies_text = st.text_area(
+        "Food Allergies",
+        value=st.session_state.food_allergies_text,
+        placeholder="peanuts:severe:swelling\nshellfish:mild\ntree nuts",
+        height=80,
+        label_visibility="collapsed"
+    )
+    
+    # Disliked Foods
+    st.markdown("**Disliked Foods**")
+    st.caption("Format: food:reason (e.g., broccoli:slimy texture) or simple list")
+    st.session_state.disliked_foods_text = st.text_area(
+        "Disliked Foods",
+        value=st.session_state.disliked_foods_text,
+        placeholder="broccoli:doesn't like texture\nmushrooms\nonions",
+        height=80,
+        label_visibility="collapsed"
+    )
+    
+    st.divider()
+    
+    # Health Conditions
+    st.subheader("🏥 Health Conditions")
+    
+    # Diseases
+    st.markdown("**Chronic/Acute Diseases**")
+    st.caption("Format: name:type:status:medication (e.g., diabetes:chronic:active:insulin) or simple")
+    st.session_state.diseases_text = st.text_area(
+        "Diseases",
+        value=st.session_state.diseases_text,
+        placeholder="diabetes:chronic:active:insulin\nhypertension:chronic:managed\narthritis",
+        height=80,
+        label_visibility="collapsed"
+    )
+    
+    # Illnesses
+    st.markdown("**Recent Illnesses**")
+    st.caption("Format: name:severity:status (e.g., flu:moderate:recovering) or simple")
+    st.session_state.illnesses_text = st.text_area(
+        "Illnesses",
+        value=st.session_state.illnesses_text,
+        placeholder="flu:moderate:recovering\ncold:mild:active\nfever",
+        height=80,
+        label_visibility="collapsed"
+    )
+    
+    st.divider()
     st.subheader("📤 Upload Data")
     
     # Health Data
@@ -418,6 +592,14 @@ if prompt := st.chat_input("Ask about nutrition, meal planning, dietary advice..
             health_data_list = health_df_filtered.to_dict('records') if not health_df_filtered.empty else []
             dietary_data_list = dietary_df_filtered.to_dict('records') if not dietary_df_filtered.empty else []
             
+            # Parse dietary preferences
+            food_allergies = parse_food_allergies(st.session_state.food_allergies_text)
+            disliked_foods = parse_disliked_foods(st.session_state.disliked_foods_text)
+            
+            # Parse health conditions
+            diseases = parse_diseases(st.session_state.diseases_text)
+            illnesses = parse_illnesses(st.session_state.illnesses_text)
+            
             response_data, error = st.session_state.api_client.send_message_with_data(
                 prompt,
                 health_data=health_data_list,
@@ -426,7 +608,12 @@ if prompt := st.chat_input("Ask about nutrition, meal planning, dietary advice..
                 age=st.session_state.profile_age,
                 gender=st.session_state.profile_gender,
                 height=st.session_state.profile_height,
-                weight=st.session_state.profile_weight
+                weight=st.session_state.profile_weight,
+                dietary_type=", ".join(st.session_state.dietary_type) if st.session_state.dietary_type else "",
+                food_allergies=food_allergies,
+                disliked_foods=disliked_foods,
+                diseases=diseases,
+                illnesses=illnesses
             )
         
         if error:

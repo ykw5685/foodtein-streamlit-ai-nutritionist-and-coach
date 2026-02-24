@@ -323,7 +323,9 @@ class APIClient:
             return None, error_msg
     
     def send_message_with_data(self, message: str, health_data: list = None, dietary_data: list = None, 
-                               name: str = "", age: int = 0, gender: str = "", height: float = 0, weight: float = 0) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+                               name: str = "", age: int = 0, gender: str = "", height: float = 0, weight: float = 0,
+                               dietary_type: str = "", food_allergies: list = None, disliked_foods: list = None,
+                               diseases: list = None, illnesses: list = None) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """
         Send a message to the AI nutritionist with custom health and dietary data
         
@@ -336,6 +338,11 @@ class APIClient:
             gender: User's gender
             height: User's height in cm
             weight: User's weight in kg
+            dietary_type: User's dietary preference (e.g., "halal", "vegetarian", "vegan")
+            food_allergies: List of food allergies with details (e.g., [{"food_item": "peanuts", "severity": "severe", "symptoms": "swelling"}])
+            disliked_foods: List of disliked foods (e.g., [{"food_item": "broccoli", "reason": "doesn't like texture"}])
+            diseases: List of disease records (e.g., [{"name": "diabetes", "type": "chronic", "status": "active"}])
+            illnesses: List of illness records (e.g., [{"name": "flu", "severity": "mild", "status": "recovering"}])
             
         Returns:
             Tuple of (response_data, error_message)
@@ -358,7 +365,12 @@ class APIClient:
             "age": age,
             "gender": gender,
             "height": height,
-            "weight": weight
+            "weight": weight,
+            "dietary_type": dietary_type,
+            "food_allergies": food_allergies or [],
+            "disliked_foods": disliked_foods or [],
+            "diseases": diseases or [],
+            "illnesses": illnesses or []
         }
         
         try:
