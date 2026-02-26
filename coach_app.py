@@ -84,9 +84,6 @@ def setup_session_state():
     if "coach_health_data" not in st.session_state:
         st.session_state.coach_health_data = []
 
-    if "coach_workout_history" not in st.session_state:
-        st.session_state.coach_workout_history = []
-
     if "coach_available_workouts" not in st.session_state:
         st.session_state.coach_available_workouts = CoachAPIClient.create_mock_available_workouts()
 
@@ -163,11 +160,8 @@ def upload_profile_data():
 def upload_csv_data():
     """Handle CSV file uploads"""
     st.sidebar.write("---")
-    st.sidebar.subheader("📊 Health & Workout Data (CSV)")
+    st.sidebar.subheader("📊 Health Data (CSV)")
 
-    # Health Data Upload
-    st.sidebar.write("**Health Data**")
-    
     col1, col2 = st.sidebar.columns(2)
     with col1:
         if st.button("📥 Download Template", key="coach_health_template"):
@@ -195,38 +189,6 @@ def upload_csv_data():
             st.sidebar.success(f"✅ Loaded {len(health_data)} health record(s)")
         except Exception as e:
             st.sidebar.error(f"❌ Error loading health data: {str(e)}")
-
-    # Workout History Upload
-    st.sidebar.write("---")
-    st.sidebar.write("**Workout History**")
-    
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.button("📥 Download Template", key="coach_workout_template"):
-            csv = COACH_WORKOUT_CSV_EXAMPLE.to_csv(index=False)
-            st.download_button(
-                label="workout_history_template.csv",
-                data=csv,
-                file_name="workout_history_template.csv",
-                mime="text/csv",
-                key="coach_download_workout"
-            )
-    
-    with col2:
-        st.write("")
-
-    workout_file = st.sidebar.file_uploader(
-        "Upload Workout History (CSV)", type="csv", key="coach_workout_csv", label_visibility="collapsed"
-    )
-
-    if workout_file:
-        try:
-            df = pd.read_csv(workout_file)
-            workout_history = st.session_state.coach_client.format_workout_history_for_api(df)
-            st.session_state.coach_workout_history = workout_history
-            st.sidebar.success(f"✅ Loaded {len(workout_history)} workout(s))")
-        except Exception as e:
-            st.sidebar.error(f"❌ Error loading workout history: {str(e)}")
 
 
 def display_coach_health_data_preview():
@@ -259,88 +221,25 @@ def display_coach_health_data_preview():
             if latest_7_dates:
                 st.sidebar.markdown(f"**Date Range:** {latest_7_dates[0]} to {latest_7_dates[-1]}")
             
-                # Show data grouped by date with expanders
+                # Show data grouped by date with expanders (ONLY: Steps, Sleep, Heart Rate)
                 for date in latest_7_dates:
                     record = dates_dict.get(date, {})
                     with st.sidebar.expander(f"📅 {date}"):
-                        metrics = {
-                            "Steps": record.get("steps_count"),
-                            "Sleep Duration (hours)": record.get("sleep_duration"),
-                            "Heart Rate (bpm)": record.get("heart_rate"),
-                            "Blood Pressure (sys)": record.get("blood_pressure_sys"),
-                            "Blood Pressure (dia)": record.get("blood_pressure_dia"),
-                            "Body Fat (%)": record.get("body_fat"),
-                            "Oxygen Saturation (%)": record.get("oxygen_saturation"),
-                        }
-                        for metric_name, value in metrics.items():
-                            if value is not None:
-                                st.write(f"  • **{metric_name}:** {value}")
+                        # Only show metrics that the coach actually uses
+                        if record.get("steps_count") is not None:
+                            st.write(f"  • **Steps:** {record['steps_count']}")
+                        if record.get("sleep_duration") is not None:
+                            st.write(f"  • **Sleep Duration:** {record['sleep_duration']} hours")
+                        if record.get("heart_rate") is not None:
+                            st.write(f"  • **Heart Rate:** {record['heart_rate']} bpm")
         else:
             st.sidebar.info("No health data in expected format")
     else:
         st.sidebar.info("No health data uploaded yet")
 
 
-
-def display_coach_workout_history_preview():
-    """Display workout history preview in sidebar"""
-    st.sidebar.subheader("🏃 Workout History")
-    
-    if st.session_state.coach_workout_history:
-        workout_history = st.session_state.coach_workout_history
-        
-        if len(workout_history) > 0 and isinstance(workout_history[0], dict) and "date" in workout_history[0]:
-            # Group by date
-            dates_dict = {}
-            for workout in workout_history:
-                date = workout.get("date", "Unknown")
-                if date not in dates_dict:
-                    dates_dict[date] = []
-                dates_dict[date].append(workout)
-            
-            # Get unique dates sorted
-            unique_dates = sorted(dates_dict.keys())
-            
-            # Keep only latest 7 days
-            latest_7_dates = unique_dates[-7:] if len(unique_dates) > 7 else unique_dates
-            
-            # Show note about 7-day limit
-            if len(unique_dates) > 7:
-                st.sidebar.caption(f"📌 Showing latest 7 of {len(unique_dates)} days")
-            else:
-                st.sidebar.caption(f"📌 Showing {len(latest_7_dates)} day{'s' if len(latest_7_dates) != 1 else ''}")
-            
-            if latest_7_dates:
-                st.sidebar.markdown(f"**Date Range:** {latest_7_dates[0]} to {latest_7_dates[-1]}")
-            
-                # Show workouts grouped by date with expanders
-                for date in latest_7_dates:
-                    date_workouts = dates_dict.get(date, [])
-                    with st.sidebar.expander(f"📅 {date} | {len(date_workouts)} workout(s)"):
-                        for workout in date_workouts:
-                            name = workout.get("workout_name", "Unknown")
-                            category = workout.get("category", "").title()
-                            duration_secs = workout.get("duration_seconds", 0)
-                            duration_mins = duration_secs // 60 if duration_secs else 0
-                            is_completed = workout.get("is_completed", False)
-                            status = "✅" if is_completed else "❌"
-                            
-                            st.write(f"**{status} {name}**")
-                            col1, col2 = st.sidebar.columns(2)
-                            with col1:
-                                st.caption(f"📂 {category}")
-                            with col2:
-                                st.caption(f"⏱️ {duration_mins} min")
-                            st.divider()
-        else:
-            st.sidebar.info("No workout history in expected format")
-    else:
-        st.sidebar.info("No workout history uploaded yet")
-
-
-
 def display_available_workouts_preview():
-    """Display available workouts preview in sidebar"""
+    """Display available workouts preview in sidebar with full details"""
     st.sidebar.subheader("💪 Available Workouts")
     
     if st.session_state.coach_available_workouts:
@@ -361,10 +260,56 @@ def display_available_workouts_preview():
             with st.sidebar.expander(f"📂 {category.title()} ({len(category_workouts)})"):
                 for workout in category_workouts:
                     name = workout.get("name", "Unknown")
-                    description = workout.get("description", "")
                     st.write(f"**{name}**")
-                    if description:
-                        st.caption(description)
+                    
+                    # Show key details
+                    details = []
+                    if workout.get("difficulty_level"):
+                        details.append(f"💎 {workout['difficulty_level']}")
+                    if workout.get("duration_minutes"):
+                        details.append(f"⏱️ {workout['duration_minutes']} min")
+                    if details:
+                        st.caption(" | ".join(details))
+                    
+                    # Description
+                    if workout.get("description"):
+                        st.caption(f"__{workout['description']}__")
+                    
+                    # Muscle groups
+                    muscles = []
+                    if workout.get("primary_muscles"):
+                        muscles.append(f"**Primary:** {workout['primary_muscles']}")
+                    if workout.get("secondary_muscles"):
+                        muscles.append(f"**Secondary:** {workout['secondary_muscles']}")
+                    if muscles:
+                        st.caption("\n".join(muscles))
+                    
+                    # Equipment
+                    equipment = workout.get("equipment", [])
+                    if equipment:
+                        eq_names = [eq.get("name", "") for eq in equipment if isinstance(eq, dict)]
+                        if eq_names:
+                            st.caption(f"🎯 Equipment: {', '.join(eq_names)}")
+                    else:
+                        st.caption("🎯 Equipment: None (Bodyweight)")
+                    
+                    # Exercises
+                    exercises = workout.get("exercises", [])
+                    if exercises:
+                        st.caption("**Exercises:**")
+                        for i, ex in enumerate(exercises, 1):
+                            ex_str = f"{i}. {ex.get('name', 'Unknown')}"
+                            details = []
+                            if ex.get("reps"):
+                                details.append(f"{ex['reps']} reps")
+                            if ex.get("sets"):
+                                details.append(f"{ex['sets']} sets")
+                            if ex.get("duration_seconds"):
+                                details.append(f"{ex['duration_seconds']}s")
+                            if details:
+                                ex_str += f" ({', '.join(details)})"
+                            st.caption(f"  • {ex_str}")
+                    
                     st.divider()
     else:
         st.sidebar.info("No available workouts loaded")
@@ -377,14 +322,18 @@ def show_data_preview():
 
     display_coach_health_data_preview()
     st.sidebar.divider()
-    display_coach_workout_history_preview()
-    st.sidebar.divider()
     display_available_workouts_preview()
 
     if st.session_state.coach_profile["name"]:
         st.sidebar.divider()
         st.sidebar.subheader("👤 Profile")
         st.sidebar.write(f"✅ **{st.session_state.coach_profile['name']}**")
+        
+        # Calculate BMI
+        height_m = st.session_state.coach_profile.get("height", 0) / 100
+        weight = st.session_state.coach_profile.get("weight", 0)
+        bmi = weight / (height_m ** 2) if height_m > 0 else 0
+        
         col1, col2 = st.sidebar.columns(2)
         with col1:
             st.sidebar.caption(f"Age: {st.session_state.coach_profile['age']}")
@@ -392,6 +341,12 @@ def show_data_preview():
         with col2:
             st.sidebar.caption(f"Height: {st.session_state.coach_profile['height']} cm")
             st.sidebar.caption(f"Weight: {st.session_state.coach_profile['weight']} kg")
+        
+        # Show BMI with color indicator
+        st.sidebar.divider()
+        bmi_color = "🟢" if bmi < 25 else "🟡" if bmi < 30 else "🔴"
+        st.sidebar.metric("BMI", f"{bmi:.1f}")
+        st.sidebar.caption(f"{bmi_color} {bmi:.1f}")
 
 
 
@@ -488,17 +443,16 @@ def send_message(user_message: str):
     try:
         # Show loading state
         with st.spinner("🤔 Coach is thinking..."):
-            # Filter health and workout data to latest 7 days before sending to API
+            # Filter health data to latest 7 days before sending to API
             health_data_filtered = filter_last_7_days_dict(st.session_state.coach_health_data)
-            workout_history_filtered = filter_last_7_days_dict(st.session_state.coach_workout_history)
             
-            print(f"DEBUG: Sending message with {len(health_data_filtered)} health records and {len(workout_history_filtered)} workout records")
+            print(f"DEBUG: Sending message with {len(health_data_filtered)} health records")
             print(f"DEBUG: Profile: {profile}")
             
             response = st.session_state.coach_client.send_message_with_data(
                 message=user_message,
                 health_data=health_data_filtered,
-                workout_history=workout_history_filtered,
+                workout_history=[],
                 available_workouts=st.session_state.coach_available_workouts,
                 name=profile.get("name"),
                 age=int(profile.get("age")),
@@ -575,7 +529,6 @@ def main():
         st.write("---")
         if st.button("📌 Load Demo Data", key="coach_load_demo"):
             st.session_state.coach_health_data = CoachAPIClient.create_mock_health_data()
-            st.session_state.coach_workout_history = CoachAPIClient.create_mock_workout_history()
             st.session_state.coach_profile = {
                 "name": "Alex Johnson",
                 "age": 28,
